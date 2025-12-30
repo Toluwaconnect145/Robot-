@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://js.puter.com/v2/"></script>
+    <style>
+        /* This makes the screen pitch black so no one knows it's a phone */
+        body { background: black; color: #002200; font-family: monospace; overflow: hidden; }
+        #log { font-size: 10px; color: #004400; } 
+    </style>
+</head>
+<body onload="initTitan()"> <div id="log">TITAN-1 OS LOADING...</div>
+
+    <script>
+        let isAwake = false;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false; // Restarts automatically for stability
+
+        function initTitan() {
+            document.body.style.backgroundColor = "black";
+            console.log("System Armed.");
+            startListening();
+        }
+
+        function startListening() {
+            try { recognition.start(); } catch(e) {}
+        }
+
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            
+            // WAKE WORD: "TITAN" or "CONNECT MODE"
+            if (!isAwake) {
+                if (text.includes("titan") || text.includes("connect")) {
+                    isAwake = true;
+                    speak("System Online. Boss Connect Oyedele, I am ready.");
+                }
+                return;
+            }
+
+            // AI RESPONSE
+            try {
+                const res = await puter.ai.chat("You are TITAN-1 robot for the Oyedele family. Short Lagos style reply to: " + text);
+                speak(res);
+            } catch (err) { startListening(); }
+        };
+
+        recognition.onend = () => { if(!window.speechSynthesis.speaking) startListening(); };
+
+        function speak(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.pitch = 0.8;
+            msg.onend = () => { startListening(); };
+            window.speechSynthesis.speak(msg);
+        }
+    </script>
+</body>
+</html>
