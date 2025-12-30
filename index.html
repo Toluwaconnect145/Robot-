@@ -2,56 +2,150 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN-1: CONNECT MODE</title>
     <script src="https://js.puter.com/v2/"></script>
     <style>
-        /* This makes the screen pitch black so no one knows it's a phone */
-        body { background: black; color: #002200; font-family: monospace; overflow: hidden; }
-        #log { font-size: 10px; color: #004400; } 
+        body { 
+            background: black; 
+            color: #00ff41; 
+            font-family: 'Courier New', monospace; 
+            text-align: center; 
+            margin: 0; 
+            overflow: hidden; 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #status { font-size: 2.5rem; font-weight: bold; margin-bottom: 20px; text-shadow: 0 0 10px #00ff41; }
+        #log { 
+            width: 90%; 
+            max-width: 400px; 
+            height: 150px; 
+            background: #050505; 
+            border: 1px solid #111; 
+            font-size: 0.7rem; 
+            color: #004400; 
+            overflow-y: scroll; 
+            text-align: left;
+            padding: 10px;
+        }
+        .touch-zone {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
+            cursor: pointer;
+        }
     </style>
 </head>
-<body onload="initTitan()"> <div id="log">TITAN-1 OS LOADING...</div>
+<body>
+
+    <div id="overlay" class="touch-zone" onclick="powerUp()"></div>
+
+    <div style="font-size: 0.6rem; color: #333;">PROPERTY OF OYEDELE FAMILY</div>
+    <div id="status">TAP TO START</div>
+    <div id="log">> SYSTEM READY...</div>
 
     <script>
+        const statusText = document.getElementById('status');
+        const logBox = document.getElementById('log');
         let isAwake = false;
+
+        // Setup Ears
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.continuous = false; // Restarts automatically for stability
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
 
-        function initTitan() {
-            document.body.style.backgroundColor = "black";
-            console.log("System Armed.");
+        function addLog(msg) {
+            logBox.innerHTML = `<div>> ${msg}</div>` + logBox.innerHTML;
+        }
+
+        // 1. Initial Start (Unlocked by user tap)
+        function powerUp() {
+            document.getElementById('overlay').style.display = 'none';
+            statusText.innerText = "STANDBY";
+            addLog("Puter Neural Link: CONNECTED.");
+            addLog("Say 'Connect Mode' or 'Wake Up'...");
             startListening();
         }
 
         function startListening() {
-            try { recognition.start(); } catch(e) {}
+            try {
+                recognition.start();
+            } catch (e) {
+                // Already listening
+            }
         }
 
         recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript.toLowerCase();
-            
-            // WAKE WORD: "TITAN" or "CONNECT MODE"
+            const text = event.results[0][0].transcript.toLowerCase().trim();
+            addLog("Heard: " + text);
+
+            // WAKE LOGIC
             if (!isAwake) {
-                if (text.includes("titan") || text.includes("connect")) {
+                if (text.includes("connect") || text.includes("mode") || text.includes("wake") || text.includes("titan")) {
                     isAwake = true;
-                    speak("System Online. Boss Connect Oyedele, I am ready.");
+                    statusText.innerText = "AWAKE";
+                    speak("System active. Greetings, Boss Connect Oyedele. How can I help the family today?");
                 }
                 return;
             }
 
-            // AI RESPONSE
+            // SLEEP LOGIC
+            if (text.includes("sleep") || text.includes("standby")) {
+                isAwake = false;
+                statusText.innerText = "STANDBY";
+                speak("Understood. Entering standby mode. Oshey!");
+                return;
+            }
+
+            // AI LOGIC
+            statusText.innerText = "THINKING";
             try {
-                const res = await puter.ai.chat("You are TITAN-1 robot for the Oyedele family. Short Lagos style reply to: " + text);
-                speak(res);
-            } catch (err) { startListening(); }
+                const response = await puter.ai.chat(
+                    `You are TITAN-1, a street-smart robot in Lagos built for the Oyedele family. 
+                     Your boss is Connect. Keep answers short and funny. Use Lagos slang.
+                     User said: ${text}`
+                );
+                
+                addLog("Titan: " + response);
+                speak(response);
+
+            } catch (err) {
+                addLog("Neural Error: " + err.message);
+                startListening();
+            }
         };
 
-        recognition.onend = () => { if(!window.speechSynthesis.speaking) startListening(); };
+        // If mic stops, turn it back on
+        recognition.onend = () => {
+            if (!window.speechSynthesis.speaking) {
+                startListening();
+            }
+        };
+
+        recognition.onerror = (e) => {
+            addLog("Mic Error: " + e.error);
+            if (e.error === 'not-allowed') {
+                statusText.innerText = "ALLOW MIC";
+            }
+        };
 
         function speak(text) {
+            statusText.innerText = "SPEAKING";
             const msg = new SpeechSynthesisUtterance(text);
             msg.pitch = 0.8;
-            msg.onend = () => { startListening(); };
+            msg.rate = 1.0;
+
+            recognition.stop(); // Stop listening while talking
+            
+            msg.onend = () => {
+                statusText.innerText = isAwake ? "AWAKE" : "STANDBY";
+                startListening();
+            };
             window.speechSynthesis.speak(msg);
         }
     </script>
